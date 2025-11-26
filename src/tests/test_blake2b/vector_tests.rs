@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use serde_json;
 use crate::usage_utils::circuit_runner::CircuitRunner;
 
 #[derive(Deserialize, Debug)]

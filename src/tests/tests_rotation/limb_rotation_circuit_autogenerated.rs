@@ -92,7 +92,9 @@ impl<F: PrimeField, const T: usize> Circuit<F> for LimbRotationCircuitAutogenera
                     .generate_row_from_word_and_keep_row(&mut region, self.input, offset)?;
                 offset += 1;
 
-                let result = (&config.limb_rotation_config.limb_rotation_config)
+                let result = config
+                    .limb_rotation_config
+                    .limb_rotation_config
                     .generate_rotation_rows_from_input_row(
                         &mut region,
                         &mut offset,

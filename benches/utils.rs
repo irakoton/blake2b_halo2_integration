@@ -5,7 +5,6 @@ use midnight_proofs::halo2curves::bn256::Fr;
 use rand::Rng;
 use blake2b_halo2::usage_utils::circuit_runner::Blake2bCircuitInputs;
 use blake2_rfc::blake2b::blake2b;
-use hex;
 
 pub fn benchmarking_block_sizes() -> Vec<usize> {
     vec![1, 5, 10, 20, 30]
@@ -45,5 +44,5 @@ pub fn random_input_for_desired_blocks(amount_of_blocks: usize) -> Blake2bCircui
 
 fn run_blake2b(input: &str, key: &str, output_size: usize) -> Vec<u8> {
     let res = blake2b(output_size, key.as_bytes(), input.as_bytes());
-    res.as_bytes().try_into().unwrap()
+    res.as_bytes().into()
 }

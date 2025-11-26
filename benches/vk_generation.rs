@@ -36,8 +36,7 @@ fn benchmark_verification_key(
         b.iter_batched(
             || {
                 let ci = random_input_for_desired_blocks(amount_of_blocks);
-                let circuit = CircuitRunner::create_circuit_for_packed_inputs(ci.clone());
-                circuit
+                CircuitRunner::create_circuit_for_packed_inputs(ci.clone())
             },
             |circuit| CircuitRunner::create_vk(&circuit, params),
             BatchSize::SmallInput,

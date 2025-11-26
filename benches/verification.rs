@@ -31,14 +31,14 @@ fn benchmark_verification_iteration(
     name: &str,
 ) {
     let ci = random_input_for_desired_blocks(amount_of_blocks);
-    let expected_output_fields = ci.4.clone();
+    let expected_output_fields = ci.4;
 
     let circuit = CircuitRunner::create_circuit_for_packed_inputs(ci);
     let vk = CircuitRunner::create_vk(&circuit, params);
     let pk = CircuitRunner::create_pk(&circuit, vk.clone());
-    let proof = CircuitRunner::create_proof(&expected_output_fields, circuit.clone(), &params, &pk);
+    let proof = CircuitRunner::create_proof(&expected_output_fields, circuit.clone(), params, &pk);
 
     group.bench_function(BenchmarkId::new(name, amount_of_blocks), |b| {
-        b.iter(|| CircuitRunner::verify(&expected_output_fields, &params, pk.clone(), &proof))
+        b.iter(|| CircuitRunner::verify(&expected_output_fields, params, pk.clone(), &proof))
     });
 }

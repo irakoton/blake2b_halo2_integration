@@ -4,7 +4,6 @@ use midnight_proofs::circuit::Value;
 // use midnight_proofs::dev::cost_model::{from_circuit_to_cost_model_options, CostOptions};
 use midnight_proofs::dev::MockProver;
 use midnight_proofs::halo2curves::bn256::Fr;
-use hex;
 use serde::Deserialize;
 use std::cmp::max;
 
@@ -64,7 +63,7 @@ fn main() {
 
 fn run_blake2b_rust(input: &str, key: &str, output_size: usize) -> Vec<u8> {
     let res = blake2b(output_size, key.as_bytes(), input.as_bytes());
-    res.as_bytes().try_into().unwrap()
+    res.as_bytes().into()
 }
 
 fn run_blake2b_halo2(input_bytes: Vec<u8>, key_bytes: Vec<u8>, expected_output: Vec<u8>)

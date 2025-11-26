@@ -31,7 +31,7 @@ fn benchmark_proof(
     name: &str,
 ) {
     let ci = random_input_for_desired_blocks(amount_of_blocks);
-    let expected_output_fields = ci.4.clone();
+    let expected_output_fields = ci.4;
 
     let circuit = CircuitRunner::create_circuit_for_packed_inputs(ci);
     let vk = CircuitRunner::create_vk(&circuit, params);
@@ -39,7 +39,7 @@ fn benchmark_proof(
 
     group.bench_function(BenchmarkId::new(name, amount_of_blocks), |b| {
         b.iter(|| {
-            CircuitRunner::create_proof(&expected_output_fields, circuit.clone(), &params, &pk)
+            CircuitRunner::create_proof(&expected_output_fields, circuit.clone(), params, &pk)
         })
     });
 }
