@@ -4,13 +4,20 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-serde = { version = "1.0.217", features = ["derive"] }
-serde_json = "1.0.135"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1"
 ff = "0.13"
-midnight-proofs = { git = "https://github.com/midnightntwrk/midnight-zk", version = "0.4.0", default-features = false, features = [
+# temporary import of midnight-proofs, for the whole project to compile. Will be updated using the syntax commented below (with the correct tag) once the latest tag is out.
+midnight-proofs = { git = "https://github.com/midnightntwrk/midnight-zk.git", branch = "main", default-features = false, features = [
     "bits",
-    "cost-estimator",
+    "circuit-params",
+    "committed-instances",
 ] }
+# midnight-proofs = { git = "https://github.com/midnightntwrk/midnight-zk.git", tag = "midnight-proofs-v0.5.1", default-features = false, features = [
+#     "bits",
+#     "circuit-params",
+#     "committed-instances",
+# ] }
 rand = "0.8"
 hex = "0.4.3"
 num-bigint = "0.4"

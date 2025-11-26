@@ -24,6 +24,7 @@ impl<F: PrimeField, const T: usize> LimbRotationCircuit<F, T> {
 impl<F: PrimeField, const T: usize> Circuit<F> for LimbRotationCircuit<F, T> {
     type Config = LimbRotationCircuitConfig<F>;
     type FloorPlanner = SimpleFloorPlanner;
+    type Params = ();
 
     fn without_witnesses(&self) -> Self {
         Self {

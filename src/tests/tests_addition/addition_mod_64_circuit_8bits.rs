@@ -19,6 +19,7 @@ pub(crate) struct AdditionMod64Config8Bits<F: PrimeField + Clone> {
 impl<F: PrimeField> Circuit<F> for AdditionMod64Circuit8Bits<F> {
     type Config = AdditionMod64Config8Bits<F>;
     type FloorPlanner = SimpleFloorPlanner;
+    type Params = ();
 
     fn without_witnesses(&self) -> Self {
         Self {

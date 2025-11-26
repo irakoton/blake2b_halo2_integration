@@ -157,6 +157,7 @@ impl CircuitRunner {
             params,
             pk,
             &[circuit],
+            0,
             &[&[expected_output_fields]],
             rand::thread_rng(),
             &mut transcript,
