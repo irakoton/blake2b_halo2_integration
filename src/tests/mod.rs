@@ -6,9 +6,9 @@ use crate::base_operations::{
     create_limb_decomposition_gate, create_range_check_gate, generate_row_from_word_and_keep_row,
     populate_lookup_table,
 };
-use crate::base_operations::types::AssignedNative;
-use crate::base_operations::types::blake2b_word::Blake2bWord;
-use crate::base_operations::types::row::AssignedRow;
+use crate::types::AssignedNative;
+use crate::types::blake2b_word::Blake2bWord;
+use crate::types::row::AssignedRow;
 
 mod test_blake2b;
 mod test_negate;

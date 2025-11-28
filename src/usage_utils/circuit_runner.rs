@@ -60,13 +60,13 @@ impl CircuitRunner {
         key_size: usize,
         output_size: usize,
     ) -> Blake2bCircuit<Fr> {
-        Blake2bCircuit::<Fr>::new_for(input_values, input_size, key_values, key_size, output_size)
+        Blake2bCircuit::<Fr>::new(input_values, input_size, key_values, key_size, output_size)
     }
 
     /// Create circuit for the given inputs. In this function the inputs are packed in a
     /// Blake2bCircuitInputs struct to avoid passing multiple parameters to the function
     pub fn create_circuit_for_packed_inputs(ci: Blake2bCircuitInputs) -> Blake2bCircuit<Fr> {
-        Blake2bCircuit::<Fr>::new_for(ci.0, ci.1, ci.2, ci.3, ci.5)
+        Blake2bCircuit::<Fr>::new(ci.0, ci.1, ci.2, ci.3, ci.5)
     }
 
     /// Convert the input, key and expected output in byte blocks
@@ -177,6 +177,7 @@ impl CircuitRunner {
 
         assert!(prepare::<Fr, KZGCommitmentScheme<Bn256>, _>(
             pk.get_vk(),
+            &[&[]],
             &[&[expected_output_fields]],
             &mut transcript,
         )?

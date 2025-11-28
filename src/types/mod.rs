@@ -1,3 +1,5 @@
+//! Basic types for the blake2b chip.
+
 /// This module holds types that exist across our code to explicitly state that a value is in a
 /// given range. Everytime you see an AssignedBit, AssignedByte, AssignedBlake2bWord or AssignedRow,
 /// you can be certain that all their values were range checked (both in the synthesize and in the
@@ -10,12 +12,16 @@ use midnight_proofs::circuit::AssignedCell;
 use num_bigint::BigUint;
 
 /// Native type for an [AssignedCell] that hasn't been constrained yet
-pub(crate) type AssignedNative<F> = AssignedCell<F, F>;
+pub type AssignedNative<F> = AssignedCell<F, F>;
 
-pub(crate) mod bit;
-pub(crate) mod byte;
-pub(crate) mod blake2b_word;
-pub(crate) mod row;
+/// Module for assigned bits.
+pub mod bit;
+/// Module for assigned bytes.
+pub mod byte;
+/// Module for assigned blake2b words.
+pub mod blake2b_word;
+/// Module for assigned blake2b rows.
+pub mod row;
 
 /// Given a field element and a limb index in little endian form, this function checks that the
 /// field element is in range [0, 2^64-1]. If it's not, it will fail.

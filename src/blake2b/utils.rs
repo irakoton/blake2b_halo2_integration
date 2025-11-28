@@ -1,9 +1,9 @@
-use crate::base_operations::types::AssignedNative;
+use crate::types::AssignedNative;
 use ff::PrimeField;
 use midnight_proofs::circuit::Region;
 use midnight_proofs::plonk::Error;
-use crate::base_operations::types::blake2b_word::AssignedBlake2bWord;
-use crate::base_operations::types::row::AssignedRow;
+use crate::types::blake2b_word::AssignedBlake2bWord;
+use crate::types::row::AssignedRow;
 
 /// Enforces the output and key sizes.
 /// Output size must be between 1 and 64 bytes.

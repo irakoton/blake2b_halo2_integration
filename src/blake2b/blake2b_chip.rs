@@ -1,34 +1,34 @@
+use std::marker::PhantomData;
+
 use crate::base_operations::addition_mod_64::AdditionMod64Config;
 use crate::base_operations::generic_limb_rotation::LimbRotation;
 use crate::base_operations::negate::NegateConfig;
 use crate::base_operations::rotate_63::Rotate63Config;
-use crate::base_operations::types::blake2b_word::AssignedBlake2bWord;
-use crate::base_operations::types::byte::AssignedByte;
-use crate::base_operations::types::row::AssignedRow;
-use crate::base_operations::types::AssignedNative;
+use crate::types::blake2b_word::AssignedBlake2bWord;
+use crate::types::byte::AssignedByte;
+use crate::types::row::AssignedRow;
+use crate::types::AssignedNative;
 use crate::base_operations::xor::XorConfig;
 use crate::base_operations::{
     create_limb_decomposition_gate, create_range_check_gate, generate_row_from_assigned_bytes,
     populate_lookup_table,
 };
-use crate::blake2b::chips::blake2b_instructions::{Blake2bInstructions, ConstantCells};
-use crate::blake2b::chips::utils::{
+use crate::blake2b::blake2b_instructions::{Blake2bInstructions, ConstantCells};
+use crate::blake2b::utils::{
     compute_processed_bytes_count_value_for_iteration, constrain_padding_cells_to_equal_zero,
-    full_number_of_each_state_row, get_total_blocks_count, zeros_to_pad_in_current_block, ABCD,
-    BLAKE2B_BLOCK_SIZE, IV_CONSTANTS, SIGMA,
+    enforce_input_sizes, full_number_of_each_state_row, get_total_blocks_count,
+    zeros_to_pad_in_current_block, ABCD, BLAKE2B_BLOCK_SIZE, IV_CONSTANTS, SIGMA,
 };
-use ff::PrimeField;
-use midnight_proofs::circuit::{Layouter, Region};
-use midnight_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Selector, TableColumn};
+use crate::blake2b::NB_BLAKE2B_ADVICE_COLS;
+use ff::{Field, PrimeField};
+use midnight_proofs::circuit::{Chip, Layouter, Region};
+use midnight_proofs::plonk::{
+    Advice, Column, ConstraintSystem, Error, Fixed, Instance, Selector, TableColumn,
+};
 
-/// This is the main chip for the Blake2b hash function. It is responsible for the entire hash computation.
-/// It contains all the necessary chips and some extra columns.
-///
-/// This implementation uses addition with 8 limbs and computes xor with a table that precomputes
-/// all the possible 8-bit operands. Since all operations have operands with 8-bit decompositions,
-/// we can recycle some rows per iteration of the algorithm for every operation.
+/// Selectors and columns for the blake2b chip implementation.
 #[derive(Clone, Debug)]
-pub struct Blake2bChip {
+pub struct Blake2bConfig {
     /// Base oprerations configs
     addition_config: AdditionMod64Config,
     generic_limb_rotation_config: LimbRotation,
@@ -37,28 +37,53 @@ pub struct Blake2bChip {
     negate_config: NegateConfig,
     /// Advice columns
     full_number_u64: Column<Advice>,
-    limbs: [Column<Advice>; 8],
+    /// Columns for the blake2b limbs.
+    pub limbs: [Column<Advice>; 8],
     /// Decomposition selectors
     q_range: Selector,
     q_decompose: Selector,
     t_range: TableColumn,
+    /// Column where the output of the blake2b hash will be stored.
+    pub output: Column<Instance>,
 }
 
-impl Blake2bInstructions for Blake2bChip {
+/// This is the main chip for the Blake2b hash function. It is responsible for the entire hash computation.
+/// It contains all the necessary chips and some extra columns.
+///
+/// This implementation uses addition with 8 limbs and computes xor with a table that precomputes
+/// all the possible 8-bit operands. Since all operations have operands with 8-bit decompositions,
+/// we can recycle some rows per iteration of the algorithm for every operation.
+#[derive(Clone, Debug)]
+pub struct Blake2bChip<F> {
+    config: Blake2bConfig,
+    _marker: PhantomData<F>,
+}
+
+impl<F: Field> Chip<F> for Blake2bChip<F> {
+    type Config = Blake2bConfig;
+    type Loaded = ();
+
+    fn config(&self) -> &Self::Config {
+        &self.config
+    }
+
+    fn loaded(&self) -> &Self::Loaded {
+        &()
+    }
+}
+
+impl<F: PrimeField> Blake2bInstructions<F> for Blake2bChip<F> {
     /// This optimization uses 2 tables:
     /// * A lookup table for range-checks of 8 bits: [0, 255]
     /// * A lookup table consisting of 3 columns that pre-computes the xor operation of 16 bits.
-    fn populate_lookup_tables<F: PrimeField>(
-        &self,
-        layouter: &mut impl Layouter<F>,
-    ) -> Result<(), Error> {
+    fn populate_lookup_tables(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
         self.populate_lookup_table_8(layouter)?;
         self.populate_xor_lookup_table(layouter)
     }
 
     /// Here the constants that will be used throughout the algorithm are assigned in some storage
     /// cells at the begining of the trace.
-    fn assign_constant_advice_cells<F: PrimeField>(
+    fn assign_constant_advice_cells(
         &self,
         output_size: usize,
         key_size: usize,
@@ -70,7 +95,7 @@ impl Blake2bInstructions for Blake2bChip {
 
         let zero_constant = region.assign_advice_from_constant(
             || "zero",
-            self.limbs[0],
+            self.config.limbs[0],
             *advice_offset,
             F::from(0),
         )?;
@@ -97,7 +122,7 @@ impl Blake2bInstructions for Blake2bChip {
 
     /// The initial state is known at circuit building time because it depends on fixed constants,
     /// key size and output size.
-    fn compute_initial_state<F: PrimeField>(
+    fn compute_initial_state(
         &self,
         iv_constant_cells: &[AssignedBlake2bWord<F>; 8],
         initial_state_0: AssignedBlake2bWord<F>,
@@ -108,7 +133,7 @@ impl Blake2bInstructions for Blake2bChip {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn perform_blake2b_iterations<F: PrimeField>(
+    fn perform_blake2b_iterations(
         &self,
         region: &mut Region<'_, F>,
         offset: &mut usize,
@@ -181,10 +206,11 @@ impl Blake2bInstructions for Blake2bChip {
                 )
             })
             .last()
-            .unwrap_or(Err(Error::Synthesis))
+            // Note: `input_blocks` can only be 0 if `is_input_empty` is true, so `total_blocks` is greater or equal than 1. Therefore, this `unwrap` must succeeds.
+            .expect("unexpected empty sequence of blake2b blocks")
     }
 
-    fn compress<F: PrimeField>(
+    fn compress(
         &self,
         region: &mut Region<'_, F>,
         row_offset: &mut usize,
@@ -208,7 +234,7 @@ impl Blake2bInstructions for Blake2bChip {
         state[12] = AssignedBlake2bWord::assign_fixed_word(
             region,
             "New state[12]",
-            self.full_number_u64,
+            self.config.full_number_u64,
             *row_offset,
             new_state_12.into(),
         )?;
@@ -245,7 +271,7 @@ impl Blake2bInstructions for Blake2bChip {
         Ok(global_state_bytes_array)
     }
 
-    fn mix<F: PrimeField>(
+    fn mix(
         &self,
         state_indexes: [usize; 4],
         x: AssignedBlake2bWord<F>,
@@ -298,15 +324,36 @@ impl Blake2bInstructions for Blake2bChip {
     }
 }
 
-impl Blake2bChip {
+impl<F: PrimeField> Blake2bChip<F> {
+    /// Generation of a fresh circuit from a configuration.
+    pub fn new(config: &Blake2bConfig) -> Self {
+        Self {
+            config: config.clone(),
+            _marker: PhantomData,
+        }
+    }
+
     /// Configuration of the circuit, this includes initialization of all the necessary configs.
     /// It should be called in the configuration of the user circuit before instantiating the
     /// Blake2b gadget.
-    pub(crate) fn configure<F: PrimeField>(
+    ///
+    /// Note: following the convention in midnight-circuits, this function enables equality on all
+    /// necessary columns, i.e., it should not be done manually before calling this function.
+    pub fn configure(
         meta: &mut ConstraintSystem<F>,
+        constants: Column<Fixed>,
         full_number_u64: Column<Advice>,
-        limbs: [Column<Advice>; 8],
-    ) -> Self {
+        limbs: [Column<Advice>; NB_BLAKE2B_ADVICE_COLS - 1],
+        output: Column<Instance>,
+    ) -> <Self as Chip<F>>::Config {
+        // Enabling column properties.
+        meta.enable_constant(constants);
+        meta.enable_equality(full_number_u64);
+        for limb in limbs {
+            meta.enable_equality(limb);
+        }
+        meta.enable_equality(output);
+
         // Gate that checks if the 8-bit limb decomposition is correct
         let q_decompose = meta.complex_selector();
         create_limb_decomposition_gate(meta, q_decompose, full_number_u64, limbs);
@@ -322,17 +369,13 @@ impl Blake2bChip {
         let negate_config = NegateConfig::configure(meta, full_number_u64);
         let generic_limb_rotation_config = LimbRotation::configure(q_decompose);
 
-        let constants = meta.fixed_column();
-        meta.enable_equality(constants);
-        meta.enable_constant(constants);
-
         // Config that is optimization-specific
         // For the carry column we'll reuse the first limb column for optimization reasons
         let addition_config =
             AdditionMod64Config::configure(meta, full_number_u64, limbs[0], q_decompose, q_range);
         let xor_config = XorConfig::configure(meta, limbs, full_number_u64, limbs, q_decompose);
 
-        Self {
+        Blake2bConfig {
             addition_config,
             generic_limb_rotation_config,
             rotate_63_config,
@@ -343,13 +386,21 @@ impl Blake2bChip {
             q_range,
             q_decompose,
             t_range,
+            output,
         }
     }
 
+    /// Loading the tables used in the chip.
+    pub fn load(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
+        self.populate_lookup_tables(layouter)
+    }
+}
+
+impl<F: PrimeField> Blake2bChip<F> {
     /// Blake2b uses a fixed initialization vector (iv). This method assigns those
     /// fixed values to advice cells. The cells used are the 8 limbs in the very first row of the
     /// trace. This is implementation specific.
-    fn assign_iv_constants_to_fixed_cells<F: PrimeField>(
+    fn assign_iv_constants_to_fixed_cells(
         &self,
         region: &mut Region<'_, F>,
         offset: &mut usize,
@@ -371,32 +422,37 @@ impl Blake2bChip {
     /// Bitwise negation operation. This is used only once in the circuit, at the beginning of the
     /// last compress iteration. It's implemented through a [NegateConfig] which establishes all the
     /// necessary restrictions.
-    fn not<F: PrimeField>(
+    fn not(
         &self,
         input_cell: &AssignedBlake2bWord<F>,
         region: &mut Region<'_, F>,
         offset: &mut usize,
     ) -> Result<AssignedBlake2bWord<F>, Error> {
-        self.negate_config.generate_rows_from_cell(region, offset, input_cell, self.full_number_u64)
+        self.config.negate_config.generate_rows_from_cell(
+            region,
+            offset,
+            input_cell,
+            self.config.full_number_u64,
+        )
     }
 
     /// Bitwise xor operation. It's performed over two assigned blake2b words. Is one of the most
     /// used operations in the Blake2b function and implemented through a [XorConfig] which
     /// creates all the necessary lookups.
-    fn xor<F: PrimeField>(
+    fn xor(
         &self,
         lhs: &AssignedBlake2bWord<F>,
         rhs: &AssignedBlake2bWord<F>,
         region: &mut Region<'_, F>,
         offset: &mut usize,
     ) -> Result<AssignedRow<F>, Error> {
-        self.xor_config.generate_xor_rows_from_cells(region, offset, lhs, rhs)
+        self.config.xor_config.generate_xor_rows_from_cells(region, offset, lhs, rhs)
     }
 
     /// Addition operation. It's performed over two assigned blake2b words. Is one of the most
     /// used operations in the Blake2b function and implemented through a [AdditionMod64Config]
     /// which creates all the necessary lookups.
-    fn add<F: PrimeField>(
+    fn add(
         &self,
         lhs: &AssignedBlake2bWord<F>,
         rhs: &AssignedBlake2bWord<F>,
@@ -404,6 +460,7 @@ impl Blake2bChip {
         offset: &mut usize,
     ) -> Result<AssignedRow<F>, Error> {
         let addition_row = self
+            .config
             .addition_config
             .generate_addition_rows_from_cells(
                 region,
@@ -411,8 +468,8 @@ impl Blake2bChip {
                 lhs,
                 rhs,
                 false,
-                self.full_number_u64,
-                self.limbs,
+                self.config.full_number_u64,
+                self.config.limbs,
             )?
             .0;
         Ok(addition_row)
@@ -421,75 +478,75 @@ impl Blake2bChip {
     /// Bitwise rotation mod 64 bits. 63 bits to the right. Internally uses a [Rotate63Config] and
     /// only receives the full number as input because it doesn't need the limbs to establish the
     /// necessary restrictions.
-    fn rotate_right_63<F: PrimeField>(
+    fn rotate_right_63(
         &self,
         input: AssignedBlake2bWord<F>,
         region: &mut Region<'_, F>,
         offset: &mut usize,
     ) -> Result<AssignedBlake2bWord<F>, Error> {
-        self.rotate_63_config.generate_64_bit_rotation_from_cells(
+        self.config.rotate_63_config.generate_64_bit_rotation_from_cells(
             region,
             offset,
             &input,
-            self.full_number_u64,
-            self.limbs,
+            self.config.full_number_u64,
+            self.config.limbs,
         )
     }
 
     /// Bitwise rotation mod 64 bits. 16 bits to the right. Internally uses the [LimbRotation] gate
     /// and receives an [AssignedRow] as input because it needs the limbs to establish the
     /// necessary restrictions. It only returns the full number, not the resulting row.
-    fn rotate_right_16<F: PrimeField>(
+    fn rotate_right_16(
         &self,
         input_row: AssignedRow<F>,
         region: &mut Region<'_, F>,
         offset: &mut usize,
     ) -> Result<AssignedBlake2bWord<F>, Error> {
-        self.generic_limb_rotation_config.generate_rotation_rows_from_input_row(
+        self.config.generic_limb_rotation_config.generate_rotation_rows_from_input_row(
             region,
             offset,
             input_row,
             2,
-            self.full_number_u64,
-            self.limbs,
+            self.config.full_number_u64,
+            self.config.limbs,
         )
     }
 
     /// Bitwise rotation mod 64 bits. 24 bits to the right. Internally uses the [LimbRotation] gate
     /// and receives an [AssignedRow] as input because it needs the limbs to establish the
     /// necessary restrictions. It only returns the full number, not the resulting row.
-    fn rotate_right_24<F: PrimeField>(
+    fn rotate_right_24(
         &self,
         input_row: AssignedRow<F>,
         region: &mut Region<'_, F>,
         offset: &mut usize,
     ) -> Result<AssignedBlake2bWord<F>, Error> {
-        self.generic_limb_rotation_config.generate_rotation_rows_from_input_row(
+        self.config.generic_limb_rotation_config.generate_rotation_rows_from_input_row(
             region,
             offset,
             input_row,
             3,
-            self.full_number_u64,
-            self.limbs,
+            self.config.full_number_u64,
+            self.config.limbs,
         )
     }
 
     /// Bitwise rotation mod 64 bits. 32 bits to the right. Internally uses the [LimbRotation] gate
     /// and receives an [AssignedRow] as input because it needs the limbs to establish the
     /// necessary restrictions. It only returns the full number, not the resulting row.
-    fn rotate_right_32<F: PrimeField>(
+    fn rotate_right_32(
         &self,
         input_row: AssignedRow<F>,
         region: &mut Region<'_, F>,
         offset: &mut usize,
     ) -> Result<AssignedBlake2bWord<F>, Error> {
-        self.generic_limb_rotation_config.generate_rotation_rows_from_input_row(
+        self.config.generic_limb_rotation_config.generate_rotation_rows_from_input_row(
             region,
             offset,
             input_row,
             4,
-            self.full_number_u64,
-            self.limbs,
+            self.config.full_number_u64,
+            self.config.limbs,
         )
     }
 
@@ -500,14 +557,14 @@ impl Blake2bChip {
     /// This method reuse the first operand of the operation, so it doesn't need to copy it.
     /// That's why it receives a [AssignedRow] as input, to let us reuse the limbs, which we need
     /// to perform the XOR operation
-    fn xor_copying_one_parameter<F: PrimeField>(
+    fn xor_copying_one_parameter(
         &self,
         previous_operand: &AssignedRow<F>,
         cell_to_copy: &AssignedBlake2bWord<F>,
         region: &mut Region<'_, F>,
         offset: &mut usize,
     ) -> Result<AssignedRow<F>, Error> {
-        self.xor_config.generate_xor_rows_reusing_first_operand(
+        self.config.xor_config.generate_xor_rows_reusing_first_operand(
             region,
             offset,
             previous_operand,
@@ -518,7 +575,7 @@ impl Blake2bChip {
     /// This method behaves like [add], with the difference that it takes advantage of the fact that
     /// the last row in the circuit is one of the operands of the addition, so it only needs to copy
     /// one parameter because the other is already on the trace.
-    fn add_copying_one_parameter<F: PrimeField>(
+    fn add_copying_one_parameter(
         &self,
         previous_cell: &AssignedBlake2bWord<F>,
         cell_to_copy: &AssignedBlake2bWord<F>,
@@ -526,6 +583,7 @@ impl Blake2bChip {
         offset: &mut usize,
     ) -> Result<AssignedRow<F>, Error> {
         Ok(self
+            .config
             .addition_config
             .generate_addition_rows_from_cells(
                 region,
@@ -533,45 +591,39 @@ impl Blake2bChip {
                 previous_cell,
                 cell_to_copy,
                 true, // Uses the optimization
-                self.full_number_u64,
-                self.limbs,
+                self.config.full_number_u64,
+                self.config.limbs,
             )?
             .0)
     }
 
     /// Fills the 8-bit range-check lookup table
-    fn populate_lookup_table_8<F: PrimeField>(
-        &self,
-        layouter: &mut impl Layouter<F>,
-    ) -> Result<(), Error> {
-        populate_lookup_table(layouter, self.t_range)
+    fn populate_lookup_table_8(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
+        populate_lookup_table(layouter, self.config.t_range)
     }
 
     /// The xor lookup table is created by the [XorConfig], since it establishes the lookups over it.
-    fn populate_xor_lookup_table<F: PrimeField>(
-        &self,
-        layouter: &mut impl Layouter<F>,
-    ) -> Result<(), Error> {
-        self.xor_config.populate_xor_lookup_table(layouter)
+    fn populate_xor_lookup_table(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error> {
+        self.config.xor_config.populate_xor_lookup_table(layouter)
     }
 
     /// Given an array of [AssignedNative] byte-values, it puts in the circuit a full row with those
     /// bytes in the limbs and the resulting full number in the first column. The resulting values
     /// are range-checked by the circuit.
-    fn new_row_from_assigned_bytes<F: PrimeField>(
+    fn new_row_from_assigned_bytes(
         &self,
         bytes: &[AssignedNative<F>; 8],
         region: &mut Region<'_, F>,
         offset: &mut usize,
     ) -> Result<AssignedRow<F>, Error> {
-        self.q_decompose.enable(region, *offset)?;
-        self.q_range.enable(region, *offset)?;
+        self.config.q_decompose.enable(region, *offset)?;
+        self.config.q_range.enable(region, *offset)?;
         let ret = generate_row_from_assigned_bytes(
             region,
             bytes,
             *offset,
-            self.full_number_u64,
-            self.limbs,
+            self.config.full_number_u64,
+            self.config.limbs,
         );
         *offset += 1;
         ret
@@ -580,7 +632,7 @@ impl Blake2bChip {
     /// This method is used when building the block words from the input bytes. It receives a list
     /// of 128 [AssignedNative] bytes that still haven't been range-checked and returns a list of
     /// 16 [AssignedRow] putted in the trace, range-checked and ready for use in the algorithm.
-    fn block_words_from_bytes<F: PrimeField>(
+    fn block_words_from_bytes(
         &self,
         region: &mut Region<'_, F>,
         offset: &mut usize,
@@ -599,7 +651,7 @@ impl Blake2bChip {
     /// Computes the values of the current block in the blake2b algorithm, based on the input and
     /// the block number we're on, among other relevant data.
     #[allow(clippy::too_many_arguments)]
-    fn build_values_for_current_block<F: PrimeField>(
+    fn build_values_for_current_block(
         input: &[AssignedNative<F>],
         key: &[AssignedNative<F>],
         block_number: usize,
@@ -627,7 +679,7 @@ impl Blake2bChip {
     }
 
     /// Assigns an u64 constant to trace[row_offset][limbs[limb_index]] cell.
-    fn assign_limb_constant_u64<F: PrimeField>(
+    fn assign_limb_constant_u64(
         &self,
         region: &mut Region<'_, F>,
         row_offset: &usize,
@@ -638,9 +690,51 @@ impl Blake2bChip {
         AssignedBlake2bWord::assign_fixed_word(
             region,
             description,
-            self.limbs[limb_index],
+            self.config.limbs[limb_index],
             *row_offset,
             constant.into(),
+        )
+    }
+}
+
+impl<F: PrimeField> Blake2bChip<F> {
+    /// Main method of the chip. The 'input' and 'key' cells should be filled with byte values.
+    pub fn hash(
+        &self,
+        layouter: &mut impl Layouter<F>,
+        input: &[AssignedNative<F>],
+        key: &[AssignedNative<F>],
+        output_size: usize,
+    ) -> Result<[AssignedByte<F>; 64], Error> {
+        enforce_input_sizes(output_size, key.len());
+        // All the computation is performed inside a single region
+        layouter.assign_region(
+            || "single region",
+            |mut region| {
+                // Initialize in 0 the offset for the advice cells in the region
+                let mut advice_offset: usize = 0;
+
+                let (iv_constant_cells, initial_state_0, zero_constant) = self
+                    .assign_constant_advice_cells(
+                        output_size,
+                        key.len(),
+                        &mut region,
+                        &mut advice_offset,
+                    )?;
+
+                let mut initial_global_state =
+                    self.compute_initial_state(&iv_constant_cells, initial_state_0)?;
+
+                self.perform_blake2b_iterations(
+                    &mut region,
+                    &mut advice_offset,
+                    input,
+                    key,
+                    &iv_constant_cells,
+                    &mut initial_global_state,
+                    zero_constant,
+                )
+            },
         )
     }
 }

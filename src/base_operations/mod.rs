@@ -12,7 +12,6 @@ pub mod xor;
 
 pub mod generic_limb_rotation;
 pub mod rotate_63;
-pub(crate) mod types;
 
 /// Given a [Blake2bWord], it returns another [Blake2bWord] with the original word rotated to the
 /// right by 'rotation_degree' bits.

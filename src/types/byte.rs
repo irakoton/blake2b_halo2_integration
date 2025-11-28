@@ -7,7 +7,7 @@ use super::*;
 
 /// The inner type of AssignedByte. A wrapper around `u8`
 #[derive(Copy, Clone, Debug)]
-pub(crate) struct Byte(pub u8);
+pub struct Byte(pub u8);
 
 impl Byte {
     /// Creates a new [Byte] element. When the byte is created, it is constrained to be in the
@@ -39,7 +39,7 @@ impl<F: PrimeField> From<&Byte> for Rational<F> {
 /// without using the designated entry points, which guarantee (with
 /// constraints) that the assigned value is indeed in the range [0, 256).
 #[derive(Clone, Debug)]
-pub(crate) struct AssignedByte<F: PrimeField>(AssignedCell<Byte, F>);
+pub struct AssignedByte<F: PrimeField>(AssignedCell<Byte, F>);
 
 impl<F: PrimeField> AssignedByte<F> {
     /// This method takes an [AssignedNative], copies it to another cell in the circuit as an
@@ -47,7 +47,7 @@ impl<F: PrimeField> AssignedByte<F> {
     /// WARNING: the caller of this method should allways constrain the value to be a byte in the
     /// circuit. That's why only the base operations can create an [AssignedByte] from a Field value,
     /// since they're responsible to activate the constraints over the cells in the trace.
-    pub(in crate::base_operations) fn copy_advice_byte_from_native(
+    pub(crate) fn copy_advice_byte_from_native(
         region: &mut Region<'_, F>,
         annotation: &str,
         column: Column<Advice>,
@@ -68,7 +68,7 @@ impl<F: PrimeField> AssignedByte<F> {
     /// This method takes an [AssignedByte], and copies it to another cell in the circuit.
     /// The range-check is not needed here, since we're copying a cell that should already have
     /// been constrained.
-    pub(in crate::base_operations) fn copy_advice_byte(
+    pub(crate) fn copy_advice_byte(
         region: &mut Region<'_, F>,
         annotation: &str,
         column: Column<Advice>,
@@ -89,7 +89,7 @@ impl<F: PrimeField> AssignedByte<F> {
     /// Given a Byte value, it creates an [AssignedBlake2bWord] with its value.
     /// WARNING: this method is only available to the base operations because they should make sure
     /// that constrains over the byte values of these cells are enforced.
-    pub(in crate::base_operations) fn assign_advice_byte(
+    pub(crate) fn assign_advice_byte(
         region: &mut Region<'_, F>,
         annotation: &str,
         column: Column<Advice>,
@@ -99,11 +99,19 @@ impl<F: PrimeField> AssignedByte<F> {
         Ok(Self(region.assign_advice(|| annotation, column, offset, || byte_value)?))
     }
 
-    pub(crate) fn cell(&self) -> Cell {
+    /// Gets the inner cell of an assigned byte.
+    pub fn cell(&self) -> Cell {
         self.0.cell()
     }
 
-    pub(crate) fn value(&self) -> Value<Byte> {
+    /// Gets the inner value of an assigned byte.
+    pub fn value(&self) -> Value<Byte> {
         self.0.value().cloned()
+    }
+}
+
+impl<F: PrimeField> From<AssignedByte<F>> for AssignedCell<Byte, F> {
+    fn from(value: AssignedByte<F>) -> Self {
+        value.0
     }
 }

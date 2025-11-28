@@ -86,7 +86,7 @@ fn run_blake2b_halo2(input_bytes: Vec<u8>, key_bytes: Vec<u8>, expected_output: 
 
     // TEST
     let circuit =
-        Blake2bCircuit::<Fr>::new_for(input_values, input_size, key_values, key_size, output_size);
+        Blake2bCircuit::<Fr>::new(input_values, input_size, key_values, key_size, output_size);
 
     let k = compute_k(amount_of_blocks(&input_bytes, &key_bytes));
     // let options = from_circuit_to_cost_model_options(Some(k), &circuit, 1);

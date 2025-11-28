@@ -1,13 +1,11 @@
 //! This is an example circuit of how you should use the Blake2b chip
 
-use crate::blake2b::blake2b_gadget::Blake2b;
-use crate::blake2b::chips::blake2b_chip::Blake2bChip;
-use crate::base_operations::types::AssignedNative;
+use crate::blake2b::blake2b_chip::{Blake2bChip, Blake2bConfig};
+use crate::types::AssignedNative;
 use ff::PrimeField;
 use midnight_proofs::circuit::{Layouter, SimpleFloorPlanner, Value};
-use midnight_proofs::plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Instance};
+use midnight_proofs::plonk::{Advice, Circuit, Column, ConstraintSystem, Error};
 use std::array;
-use std::marker::PhantomData;
 
 /// The struct of the circuit. It contains the input and key that will be hashed. Also
 /// the sizes of the input, key and output.
@@ -22,20 +20,8 @@ pub struct Blake2bCircuit<F: PrimeField> {
     output_size: usize,
 }
 
-/// The configuration of the circuit. It contains the chip that will be used to compute the hash and
-/// the columns that will hold the expected output of the hash in the form of public inputs.
-#[derive(Clone, Debug)]
-pub struct Blake2bConfig<F: PrimeField> {
-    _ph: PhantomData<F>,
-    /// The chip that will be used to compute the hash. We only need this.
-    blake2b_chip: Blake2bChip,
-    /// Column that will hold the expected output of the hash in the form of public inputs
-    expected_final_state: Column<Instance>,
-    limbs: [Column<Advice>; 8],
-}
-
 impl<F: PrimeField> Circuit<F> for Blake2bCircuit<F> {
-    type Config = Blake2bConfig<F>;
+    type Config = Blake2bConfig;
     type FloorPlanner = SimpleFloorPlanner;
     type Params = ();
 
@@ -52,31 +38,14 @@ impl<F: PrimeField> Circuit<F> for Blake2bCircuit<F> {
         }
     }
 
-    #[allow(unused_variables)]
     fn configure(meta: &mut ConstraintSystem<F>) -> Self::Config {
         let full_number_u64 = meta.advice_column();
-        meta.enable_equality(full_number_u64);
-
         let limbs: [Column<Advice>; 8] = array::from_fn(|_| meta.advice_column());
-        for limb in limbs {
-            meta.enable_equality(limb);
-        }
-
+        let constant_col = meta.fixed_column();
         let expected_final_state = meta.instance_column();
-        meta.enable_equality(expected_final_state);
-
-        // We need to provide the chip with the advice columns that it will use.
-        let blake2b_chip = Blake2bChip::configure(meta, full_number_u64, limbs);
-
-        Self::Config {
-            _ph: PhantomData,
-            blake2b_chip,
-            expected_final_state,
-            limbs,
-        }
+        Blake2bChip::configure(meta, constant_col, full_number_u64, limbs, expected_final_state)
     }
 
-    #[allow(unused_variables)]
     fn synthesize(
         &self,
         config: Self::Config,
@@ -91,22 +60,14 @@ impl<F: PrimeField> Circuit<F> for Blake2bCircuit<F> {
         let assigned_key =
             Self::assign_inputs_to_the_trace(config.clone(), &mut layouter, &self.key)?;
 
-        // The initialization function should be called before the hash computation. For many hash
-        // computations it should be called only once.
-        let mut blake2b = Blake2b::new(config.blake2b_chip)?;
-        blake2b.initialize(&mut layouter)?;
-
-        // Call to the blake2b function
-        let result =
-            blake2b.hash(&mut layouter, &assigned_input, &assigned_key, self.output_size)?;
+        // Initialising the chip and calling the hash.
+        let chip = Blake2bChip::new(&config);
+        chip.load(&mut layouter)?;
+        let result = chip.hash(&mut layouter, &assigned_input, &assigned_key, self.output_size)?;
 
         // Assert results
         for (i, global_state_byte_cell) in result.iter().enumerate().take(self.output_size) {
-            layouter.constrain_instance(
-                global_state_byte_cell.cell(),
-                config.expected_final_state,
-                i,
-            )?;
+            layouter.constrain_instance(global_state_byte_cell.cell(), config.output, i)?;
         }
         Ok(())
     }
@@ -114,7 +75,7 @@ impl<F: PrimeField> Circuit<F> for Blake2bCircuit<F> {
 
 impl<F: PrimeField> Blake2bCircuit<F> {
     /// This method creates a new instance of the circuit with the given input, key and output sizes.
-    pub fn new_for(
+    pub fn new(
         input: Vec<Value<F>>,
         input_size: usize,
         key: Vec<Value<F>>,
@@ -133,7 +94,7 @@ impl<F: PrimeField> Blake2bCircuit<F> {
     /// Here the inputs are stored in the trace. It doesn't really matter how they're stored, this
     /// specific circuit uses the limb columns to do it but that's arbitrary.
     fn assign_inputs_to_the_trace(
-        config: Blake2bConfig<F>,
+        config: Blake2bConfig,
         layouter: &mut impl Layouter<F>,
         input: &[Value<F>],
     ) -> Result<Vec<AssignedNative<F>>, Error> {

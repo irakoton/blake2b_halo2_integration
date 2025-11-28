@@ -40,7 +40,7 @@ impl<F: PrimeField> AssignedBit<F> {
     /// constraints over the cells in the trace. In this case, the AdditionMod64 gate is the
     /// responsible to create constraints over the carry bit, which will be represented by an
     /// [AssignedBit].
-    pub(in crate::base_operations) fn assign_advice_bit(
+    pub(crate) fn assign_advice_bit(
         region: &mut Region<'_, F>,
         annotation: &str,
         column: Column<Advice>,
