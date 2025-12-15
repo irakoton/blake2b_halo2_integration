@@ -23,7 +23,6 @@ pub struct Blake2bCircuit<F: PrimeField> {
 impl<F: PrimeField> Circuit<F> for Blake2bCircuit<F> {
     type Config = Blake2bConfig;
     type FloorPlanner = SimpleFloorPlanner;
-    type Params = ();
 
     fn without_witnesses(&self) -> Self {
         let input_size = self.input_size;

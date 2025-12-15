@@ -1,5 +1,5 @@
 use super::*;
-use midnight_proofs::halo2curves::bn256::Fr;
+use midnight_curves::bls12_381::Fq;
 use ff::Field;
 use std::marker::PhantomData;
 use crate::base_operations::{
@@ -16,11 +16,11 @@ mod tests_addition;
 mod tests_rotation;
 mod tests_xor;
 
-pub(crate) fn one() -> Value<Fr> {
-    Value::known(Fr::ONE)
+pub(crate) fn one() -> Value<Fq> {
+    Value::known(Fq::ONE)
 }
-pub(crate) fn zero() -> Value<Fr> {
-    Value::known(Fr::ZERO)
+pub(crate) fn zero() -> Value<Fq> {
+    Value::known(Fq::ZERO)
 }
 
 pub(crate) fn blake2b_value_for(number: u64) -> Value<Blake2bWord> {

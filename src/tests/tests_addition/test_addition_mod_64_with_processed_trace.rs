@@ -1,6 +1,6 @@
 use crate::tests::tests_addition::addition_mod_64_circuit_8bits::AdditionMod64Circuit8Bits;
 use midnight_proofs::dev::MockProver;
-use midnight_proofs::halo2curves::bn256::Fr;
+use midnight_curves::bls12_381::Fq;
 use rand::Rng;
 use crate::tests::{generate_row_8bits, value_for, zero};
 
@@ -34,7 +34,7 @@ fn test_positive_addition_with_0() {
             zero(),
         ],
     ];
-    let circuit = AdditionMod64Circuit8Bits::<Fr>::new_for_trace(trace);
+    let circuit = AdditionMod64Circuit8Bits::<Fq>::new_for_trace(trace);
     let prover = MockProver::run(17, &circuit, vec![]).unwrap();
     prover.verify().unwrap();
 
@@ -63,12 +63,12 @@ fn test_positive_addition_with_0() {
             zero(),
         ],
     ];
-    let circuit = AdditionMod64Circuit8Bits::<Fr>::new_for_trace(trace);
+    let circuit = AdditionMod64Circuit8Bits::<Fq>::new_for_trace(trace);
     let prover = MockProver::run(17, &circuit, vec![]).unwrap();
     prover.verify().unwrap();
 
-    let trace = [generate_row_8bits::<u64, Fr>(0); 3];
-    let circuit = AdditionMod64Circuit8Bits::<Fr>::new_for_trace(trace);
+    let trace = [generate_row_8bits::<u64, Fq>(0); 3];
+    let circuit = AdditionMod64Circuit8Bits::<Fq>::new_for_trace(trace);
     let prover = MockProver::run(17, &circuit, vec![]).unwrap();
     prover.verify().unwrap();
 }
@@ -77,12 +77,12 @@ fn test_positive_addition_with_0() {
 #[should_panic]
 fn test_negative_addition() {
     let trace = [
-        generate_row_8bits::<u64, Fr>(1),
-        generate_row_8bits::<u64, Fr>(1),
-        generate_row_8bits::<u64, Fr>(3),
+        generate_row_8bits::<u64, Fq>(1),
+        generate_row_8bits::<u64, Fq>(1),
+        generate_row_8bits::<u64, Fq>(3),
     ];
 
-    let circuit = AdditionMod64Circuit8Bits::<Fr>::new_for_trace(trace);
+    let circuit = AdditionMod64Circuit8Bits::<Fq>::new_for_trace(trace);
     let prover = MockProver::run(17, &circuit, vec![]).unwrap();
     prover.verify().unwrap();
 }
@@ -92,12 +92,12 @@ fn test_negative_addition() {
 fn test_negative_random_addition() {
     let mut rng = rand::thread_rng();
     let trace = [
-        generate_row_8bits::<u64, Fr>(rng.gen()),
-        generate_row_8bits::<u64, Fr>(rng.gen()),
-        generate_row_8bits::<u64, Fr>(rng.gen()),
+        generate_row_8bits::<u64, Fq>(rng.gen()),
+        generate_row_8bits::<u64, Fq>(rng.gen()),
+        generate_row_8bits::<u64, Fq>(rng.gen()),
     ];
 
-    let circuit = AdditionMod64Circuit8Bits::<Fr>::new_for_trace(trace);
+    let circuit = AdditionMod64Circuit8Bits::<Fq>::new_for_trace(trace);
     let prover = MockProver::run(17, &circuit, vec![]).unwrap();
     prover.verify().unwrap();
 }
@@ -111,11 +111,11 @@ fn test_negative_sum_correct_but_no_carry_tracked() {
     let x: u128 = rng.gen();
     let max_u64 = u64::MAX as u128;
     let trace = [
-        generate_row_8bits::<u128, Fr>(x),
-        generate_row_8bits::<u128, Fr>(max_u64),
-        generate_row_8bits::<u128, Fr>(x + max_u64),
+        generate_row_8bits::<u128, Fq>(x),
+        generate_row_8bits::<u128, Fq>(max_u64),
+        generate_row_8bits::<u128, Fq>(x + max_u64),
     ];
-    let circuit = AdditionMod64Circuit8Bits::<Fr>::new_for_trace(trace);
+    let circuit = AdditionMod64Circuit8Bits::<Fq>::new_for_trace(trace);
     let prover = MockProver::run(17, &circuit, vec![]).unwrap();
     prover.verify().unwrap();
 }
@@ -125,12 +125,12 @@ fn test_negative_sum_correct_but_no_carry_tracked() {
 fn test_negative_sum_correct_but_unnecessary_carry() {
     // This should panic because, although the sum is correct, the carry column is incorrect. It should be 0.
     let mut trace = [
-        generate_row_8bits::<u64, Fr>(1),
-        generate_row_8bits::<u128, Fr>(2),
-        generate_row_8bits::<u64, Fr>(3),
+        generate_row_8bits::<u64, Fq>(1),
+        generate_row_8bits::<u128, Fq>(2),
+        generate_row_8bits::<u64, Fq>(3),
     ];
     trace[1][1] = value_for(1u8);
-    let circuit = AdditionMod64Circuit8Bits::<Fr>::new_for_trace(trace);
+    let circuit = AdditionMod64Circuit8Bits::<Fq>::new_for_trace(trace);
     let prover = MockProver::run(17, &circuit, vec![]).unwrap();
     prover.verify().unwrap();
 }
@@ -141,13 +141,13 @@ fn test_negative_sum_correct_but_decomposition_exceedes_range_check() {
     // This should panic because, although the sum is correct,
     // the result does not respect the max sizes
     let mut trace = [
-        generate_row_8bits::<u64, Fr>(1 << 8),
-        generate_row_8bits::<u128, Fr>((1 << 8) - 1),
-        generate_row_8bits::<u64, Fr>((1 << 9) - 1),
+        generate_row_8bits::<u64, Fq>(1 << 8),
+        generate_row_8bits::<u128, Fq>((1 << 8) - 1),
+        generate_row_8bits::<u64, Fq>((1 << 9) - 1),
     ];
     trace[0][1] = value_for(1u16 << 8);
     trace[0][2] = value_for(0u8);
-    let circuit = AdditionMod64Circuit8Bits::<Fr>::new_for_trace(trace);
+    let circuit = AdditionMod64Circuit8Bits::<Fq>::new_for_trace(trace);
     let prover = MockProver::run(17, &circuit, vec![]).unwrap();
     prover.verify().unwrap();
 }
