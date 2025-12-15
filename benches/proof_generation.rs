@@ -1,7 +1,7 @@
 use blake2b_halo2::usage_utils::circuit_runner::CircuitRunner;
 use criterion::measurement::WallTime;
 use criterion::{criterion_group, criterion_main, BenchmarkGroup, BenchmarkId, Criterion, Throughput};
-use midnight_proofs::halo2curves::bn256::Bn256;
+use midnight_curves::bls12_381::Bls12;
 use midnight_proofs::poly::kzg::params::ParamsKZG;
 
 pub mod utils;
@@ -14,7 +14,7 @@ pub fn benchmark_proof_generation(c: &mut Criterion) {
     let mut group = c.benchmark_group("proof");
     configure_group(&mut group);
 
-    let params = ParamsKZG::<Bn256>::unsafe_setup(17, &mut rand::thread_rng());
+    let params = ParamsKZG::<Bls12>::unsafe_setup(17, &mut rand::thread_rng());
 
     for amount_of_blocks in benchmarking_block_sizes() {
         group.throughput(Throughput::Bytes(amount_of_blocks as u64));
@@ -25,7 +25,7 @@ pub fn benchmark_proof_generation(c: &mut Criterion) {
 }
 
 fn benchmark_proof(
-    params: &ParamsKZG<Bn256>,
+    params: &ParamsKZG<Bls12>,
     group: &mut BenchmarkGroup<WallTime>,
     amount_of_blocks: usize,
     name: &str,

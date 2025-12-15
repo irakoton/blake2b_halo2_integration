@@ -1,7 +1,7 @@
 use criterion::{BenchmarkGroup, SamplingMode};
 use criterion::measurement::WallTime;
 use midnight_proofs::circuit::Value;
-use midnight_proofs::halo2curves::bn256::Fr;
+use midnight_curves::bls12_381::Fq;
 use rand::Rng;
 use blake2b_halo2::usage_utils::circuit_runner::Blake2bCircuitInputs;
 use blake2_rfc::blake2b::blake2b;
@@ -32,12 +32,12 @@ pub fn random_input_for_desired_blocks(amount_of_blocks: usize) -> Blake2bCircui
 
     let hash_result = run_blake2b(random_inputs, key, output_size);
 
-    let expected_output_: Vec<Fr> = hash_result.iter().map(|byte| Fr::from(*byte as u64)).collect();
-    let expected_output: [Fr; OUTPUT_SIZE] = expected_output_.try_into().unwrap();
-    let input_values: Vec<Value<Fr>> =
-        random_input_bytes.iter().map(|x| Value::known(Fr::from(*x as u64))).collect();
+    let expected_output_: Vec<Fq> = hash_result.iter().map(|byte| Fq::from(*byte as u64)).collect();
+    let expected_output: [Fq; OUTPUT_SIZE] = expected_output_.try_into().unwrap();
+    let input_values: Vec<Value<Fq>> =
+        random_input_bytes.iter().map(|x| Value::known(Fq::from(*x as u64))).collect();
     let key_size = 0;
-    let key_values: Vec<Value<Fr>> = vec![];
+    let key_values: Vec<Value<Fq>> = vec![];
 
     (input_values, input_size, key_values, key_size, expected_output, OUTPUT_SIZE)
 }
