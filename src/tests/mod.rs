@@ -1,14 +1,14 @@
 use super::*;
-use midnight_proofs::halo2curves::bn256::Fr;
+use midnight_curves::bls12_381::Fq;
 use ff::Field;
 use std::marker::PhantomData;
 use crate::base_operations::{
     create_limb_decomposition_gate, create_range_check_gate, generate_row_from_word_and_keep_row,
     populate_lookup_table,
 };
-use crate::base_operations::types::AssignedNative;
-use crate::base_operations::types::blake2b_word::Blake2bWord;
-use crate::base_operations::types::row::AssignedRow;
+use crate::types::AssignedNative;
+use crate::types::blake2b_word::Blake2bWord;
+use crate::types::row::AssignedRow;
 
 mod test_blake2b;
 mod test_negate;
@@ -16,11 +16,11 @@ mod tests_addition;
 mod tests_rotation;
 mod tests_xor;
 
-pub(crate) fn one() -> Value<Fr> {
-    Value::known(Fr::ONE)
+pub(crate) fn one() -> Value<Fq> {
+    Value::known(Fq::ONE)
 }
-pub(crate) fn zero() -> Value<Fr> {
-    Value::known(Fr::ZERO)
+pub(crate) fn zero() -> Value<Fq> {
+    Value::known(Fq::ZERO)
 }
 
 pub(crate) fn blake2b_value_for(number: u64) -> Value<Blake2bWord> {

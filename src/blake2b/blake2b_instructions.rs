@@ -1,6 +1,6 @@
-use crate::base_operations::types::blake2b_word::AssignedBlake2bWord;
-use crate::base_operations::types::byte::AssignedByte;
-use crate::base_operations::types::AssignedNative;
+use crate::types::blake2b_word::AssignedBlake2bWord;
+use crate::types::byte::AssignedByte;
+use crate::types::AssignedNative;
 use ff::PrimeField;
 use midnight_proofs::circuit::{Layouter, Region};
 use midnight_proofs::plonk::Error;
@@ -10,17 +10,14 @@ pub(crate) type ConstantCells<F> =
 
 /// This is the trait that groups the Blake2b implementation chips. Every Blake2b chip
 /// should implement this trait.
-pub trait Blake2bInstructions: Clone {
+pub trait Blake2bInstructions<F: PrimeField>: Clone {
     /// Populate all lookup tables needed for the chip
-    fn populate_lookup_tables<F: PrimeField>(
-        &self,
-        layouter: &mut impl Layouter<F>,
-    ) -> Result<(), Error>;
+    fn populate_lookup_tables(&self, layouter: &mut impl Layouter<F>) -> Result<(), Error>;
 
     /// Assign initializations constants at the beginning. These constants are the initialization
     /// vector (IV) constants, the zero constant and a constant computed from the key and output
     /// lengths that is used for the initial state of the rounds.
-    fn assign_constant_advice_cells<F: PrimeField>(
+    fn assign_constant_advice_cells(
         &self,
         output_size: usize,
         key_size: usize,
@@ -30,7 +27,7 @@ pub trait Blake2bInstructions: Clone {
 
     /// Computes the initial global state of Blake2b. It only depends on the key size and the
     /// output size, which are values known at circuit building time.
-    fn compute_initial_state<F: PrimeField>(
+    fn compute_initial_state(
         &self,
         iv_constant_cells: &[AssignedBlake2bWord<F>; 8],
         initial_state_0: AssignedBlake2bWord<F>,
@@ -43,7 +40,7 @@ pub trait Blake2bInstructions: Clone {
     /// that represent that particular word in the state.
     /// The return bytes of this function are the digest of the Blake2b computation.
     #[allow(clippy::too_many_arguments)]
-    fn perform_blake2b_iterations<F: PrimeField>(
+    fn perform_blake2b_iterations(
         &self,
         region: &mut Region<'_, F>,
         advice_offset: &mut usize,
@@ -58,7 +55,7 @@ pub trait Blake2bInstructions: Clone {
     /// consecutive calls of this method. If the algorithm is in its last round, the is_last_block
     /// parameter should be set to true.
     #[allow(clippy::too_many_arguments)]
-    fn compress<F: PrimeField>(
+    fn compress(
         &self,
         region: &mut Region<'_, F>,
         row_offset: &mut usize,
@@ -75,7 +72,7 @@ pub trait Blake2bInstructions: Clone {
     /// be processed in this mixing round.
     /// The 'state_indexes' are the indexes of the compress state that will take part on this
     /// mixing round. These are also needed to update the state at the end of the mixing.
-    fn mix<F: PrimeField>(
+    fn mix(
         &self,
         state_indexes: [usize; 4],
         x: AssignedBlake2bWord<F>,

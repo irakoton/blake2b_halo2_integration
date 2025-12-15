@@ -23,6 +23,7 @@ impl<F: PrimeField, const T: usize> LimbRotationCircuit<F, T> {
 
 impl<F: PrimeField, const T: usize> Circuit<F> for LimbRotationCircuit<F, T> {
     type Config = LimbRotationCircuitConfig<F>;
+    type Params = ();
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {
@@ -92,13 +93,13 @@ impl LimbRotation {
             |mut region| {
                 let first_row = decompose_config.populate_row_from_values(
                     &mut region,
-                    &trace[0].to_vec(),
+                    trace[0].as_ref(),
                     0,
                     true,
                 )?;
                 let second_row = decompose_config.populate_row_from_values(
                     &mut region,
-                    &trace[1].to_vec(),
+                    trace[1].as_ref(),
                     1,
                     true,
                 )?;
@@ -110,7 +111,6 @@ impl LimbRotation {
                     let bottom_cell = second_row[((8 + i - limb_rotations_right) % 8) + 1].cell();
                     region.constrain_equal(top_cell, bottom_cell)?;
                 }
-                ();
                 Ok(())
             },
         )?;

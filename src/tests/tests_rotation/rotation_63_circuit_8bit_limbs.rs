@@ -22,6 +22,7 @@ impl<F: PrimeField> Rotation63Circuit8bitLimbs<F> {
 
 impl<F: PrimeField> Circuit<F> for Rotation63Circuit8bitLimbs<F> {
     type Config = Rotation63Config8bitLimbs<F>;
+    type Params = ();
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {

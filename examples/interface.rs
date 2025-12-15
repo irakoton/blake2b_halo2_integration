@@ -3,8 +3,7 @@ use blake2b_halo2::usage_utils::blake2b_circuit::Blake2bCircuit;
 use midnight_proofs::circuit::Value;
 // use midnight_proofs::dev::cost_model::{from_circuit_to_cost_model_options, CostOptions};
 use midnight_proofs::dev::MockProver;
-use midnight_proofs::halo2curves::bn256::Fr;
-use hex;
+use midnight_curves::bls12_381::Fq;
 use serde::Deserialize;
 use std::cmp::max;
 
@@ -64,7 +63,7 @@ fn main() {
 
 fn run_blake2b_rust(input: &str, key: &str, output_size: usize) -> Vec<u8> {
     let res = blake2b(output_size, key.as_bytes(), input.as_bytes());
-    res.as_bytes().try_into().unwrap()
+    res.as_bytes().into()
 }
 
 fn run_blake2b_halo2(input_bytes: Vec<u8>, key_bytes: Vec<u8>, expected_output: Vec<u8>)
@@ -73,21 +72,21 @@ fn run_blake2b_halo2(input_bytes: Vec<u8>, key_bytes: Vec<u8>, expected_output: 
     // INPUT
     let input_size = input_bytes.len();
     let input_values =
-        input_bytes.iter().map(|x| Value::known(Fr::from(*x as u64))).collect::<Vec<_>>();
+        input_bytes.iter().map(|x| Value::known(Fq::from(*x as u64))).collect::<Vec<_>>();
 
     // OUTPUT
     let output_size = expected_output.len();
-    let expected_output_fields: Vec<Fr> =
-        expected_output.iter().map(|x| Fr::from(*x as u64)).collect::<Vec<_>>();
+    let expected_output_fields: Vec<Fq> =
+        expected_output.iter().map(|x| Fq::from(*x as u64)).collect::<Vec<_>>();
 
     // KEY
     let key_size = key_bytes.len();
     let key_values =
-        key_bytes.iter().map(|x| Value::known(Fr::from(*x as u64))).collect::<Vec<_>>();
+        key_bytes.iter().map(|x| Value::known(Fq::from(*x as u64))).collect::<Vec<_>>();
 
     // TEST
     let circuit =
-        Blake2bCircuit::<Fr>::new_for(input_values, input_size, key_values, key_size, output_size);
+        Blake2bCircuit::<Fq>::new(input_values, input_size, key_values, key_size, output_size);
 
     let k = compute_k(amount_of_blocks(&input_bytes, &key_bytes));
     // let options = from_circuit_to_cost_model_options(Some(k), &circuit, 1);

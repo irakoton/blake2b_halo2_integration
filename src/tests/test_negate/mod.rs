@@ -9,7 +9,7 @@ fn test_negate_zero_should_result_in_max_number() {
     let x = blake2b_value_for(0);
     let not_x = blake2b_value_for(((1u128 << 64) - 1) as u64);
 
-    let circuit = NegateCircuit::<Fr>::new_for(x, not_x);
+    let circuit = NegateCircuit::<Fq>::new_for(x, not_x);
     let prover = MockProver::run(17, &circuit, vec![]).unwrap();
     prover.verify().unwrap();
 }
@@ -20,7 +20,7 @@ fn test_negate_number_should_result_in_max_number_minus_that_number() {
     let max_number = ((1u128 << 64) - 1) as u64;
     let not_x = blake2b_value_for(max_number - number);
 
-    let circuit = NegateCircuit::<Fr>::new_for(blake2b_value_for(number), not_x);
+    let circuit = NegateCircuit::<Fq>::new_for(blake2b_value_for(number), not_x);
     let prover = MockProver::run(17, &circuit, vec![]).unwrap();
     prover.verify().unwrap();
 }
@@ -32,7 +32,7 @@ fn test_negate_number_fails_when_given_a_wrong_result() {
     let max_number = ((1u128 << 64) - 1) as u64;
     let not_x = blake2b_value_for(max_number - number - 1);
 
-    let circuit = NegateCircuit::<Fr>::new_for(blake2b_value_for(number), not_x);
+    let circuit = NegateCircuit::<Fq>::new_for(blake2b_value_for(number), not_x);
     let prover = MockProver::run(17, &circuit, vec![]).unwrap();
     prover.verify().unwrap();
 }
