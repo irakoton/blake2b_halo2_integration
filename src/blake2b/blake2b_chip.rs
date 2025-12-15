@@ -22,9 +22,7 @@ use crate::blake2b::utils::{
 use crate::blake2b::NB_BLAKE2B_ADVICE_COLS;
 use ff::{Field, PrimeField};
 use midnight_proofs::circuit::{Chip, Layouter, Region};
-use midnight_proofs::plonk::{
-    Advice, Column, ConstraintSystem, Error, Fixed, Instance, Selector, TableColumn,
-};
+use midnight_proofs::plonk::{Advice, Column, ConstraintSystem, Error, Fixed, Selector, TableColumn};
 
 /// Selectors and columns for the blake2b chip implementation.
 #[derive(Clone, Debug)]
@@ -43,8 +41,6 @@ pub struct Blake2bConfig {
     q_range: Selector,
     q_decompose: Selector,
     t_range: TableColumn,
-    /// Column where the output of the blake2b hash will be stored.
-    pub output: Column<Instance>,
 }
 
 /// This is the main chip for the Blake2b hash function. It is responsible for the entire hash computation.
@@ -344,7 +340,6 @@ impl<F: PrimeField> Blake2bChip<F> {
         constants: Column<Fixed>,
         full_number_u64: Column<Advice>,
         limbs: [Column<Advice>; NB_BLAKE2B_ADVICE_COLS - 1],
-        output: Column<Instance>,
     ) -> <Self as Chip<F>>::Config {
         // Enabling column properties.
         meta.enable_constant(constants);
@@ -352,7 +347,6 @@ impl<F: PrimeField> Blake2bChip<F> {
         for limb in limbs {
             meta.enable_equality(limb);
         }
-        meta.enable_equality(output);
 
         // Gate that checks if the 8-bit limb decomposition is correct
         let q_decompose = meta.complex_selector();
@@ -386,7 +380,6 @@ impl<F: PrimeField> Blake2bChip<F> {
             q_range,
             q_decompose,
             t_range,
-            output,
         }
     }
 

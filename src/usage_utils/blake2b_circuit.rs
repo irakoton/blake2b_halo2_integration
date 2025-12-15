@@ -4,7 +4,7 @@ use crate::blake2b::blake2b_chip::{Blake2bChip, Blake2bConfig};
 use crate::types::AssignedNative;
 use ff::PrimeField;
 use midnight_proofs::circuit::{Layouter, SimpleFloorPlanner, Value};
-use midnight_proofs::plonk::{Advice, Circuit, Column, ConstraintSystem, Error};
+use midnight_proofs::plonk::{Advice, Circuit, Column, ConstraintSystem, Error, Instance};
 use std::array;
 
 /// The struct of the circuit. It contains the input and key that will be hashed. Also
@@ -21,7 +21,7 @@ pub struct Blake2bCircuit<F: PrimeField> {
 }
 
 impl<F: PrimeField> Circuit<F> for Blake2bCircuit<F> {
-    type Config = Blake2bConfig;
+    type Config = (Blake2bConfig, Column<Instance>);
     type Params = ();
     type FloorPlanner = SimpleFloorPlanner;
 
@@ -43,7 +43,8 @@ impl<F: PrimeField> Circuit<F> for Blake2bCircuit<F> {
         let limbs: [Column<Advice>; 8] = array::from_fn(|_| meta.advice_column());
         let constant_col = meta.fixed_column();
         let expected_final_state = meta.instance_column();
-        Blake2bChip::configure(meta, constant_col, full_number_u64, limbs, expected_final_state)
+        meta.enable_equality(expected_final_state);
+        (Blake2bChip::configure(meta, constant_col, full_number_u64, limbs), expected_final_state)
     }
 
     fn synthesize(
@@ -56,18 +57,18 @@ impl<F: PrimeField> Circuit<F> for Blake2bCircuit<F> {
         // the blake2b chip. This means that the chip does not expect the inputs to be bytes, but
         // the execution will fail if they're not.
         let assigned_input =
-            Self::assign_inputs_to_the_trace(config.clone(), &mut layouter, &self.input)?;
+            Self::assign_inputs_to_the_trace(config.0.clone(), &mut layouter, &self.input)?;
         let assigned_key =
-            Self::assign_inputs_to_the_trace(config.clone(), &mut layouter, &self.key)?;
+            Self::assign_inputs_to_the_trace(config.0.clone(), &mut layouter, &self.key)?;
 
         // Initialising the chip and calling the hash.
-        let chip = Blake2bChip::new(&config);
+        let chip = Blake2bChip::new(&config.0);
         chip.load(&mut layouter)?;
         let result = chip.hash(&mut layouter, &assigned_input, &assigned_key, self.output_size)?;
 
         // Assert results
         for (i, global_state_byte_cell) in result.iter().enumerate().take(self.output_size) {
-            layouter.constrain_instance(global_state_byte_cell.cell(), config.output, i)?;
+            layouter.constrain_instance(global_state_byte_cell.cell(), config.1, i)?;
         }
         Ok(())
     }
