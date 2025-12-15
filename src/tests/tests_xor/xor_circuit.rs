@@ -29,6 +29,7 @@ impl<F: PrimeField> XorCircuit<F> {
 
 impl<F: PrimeField> Circuit<F> for XorCircuit<F> {
     type Config = XorCircuitConfig<F>;
+    type Params = ();
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {

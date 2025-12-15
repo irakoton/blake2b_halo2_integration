@@ -24,6 +24,7 @@ pub(crate) struct NegateCircuitConfig<F: PrimeField> {
 
 impl<F: PrimeField> Circuit<F> for NegateCircuit<F> {
     type Config = NegateCircuitConfig<F>;
+    type Params = ();
     type FloorPlanner = SimpleFloorPlanner;
 
     fn without_witnesses(&self) -> Self {

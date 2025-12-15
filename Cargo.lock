@@ -504,7 +504,7 @@ checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
 [[package]]
 name = "midnight-curves"
 version = "0.1.1"
-source = "git+https://github.com/midnightntwrk/midnight-zk.git?rev=4769e14#4769e143566e70a4b7e9465609d99d9ca898f6a7"
+source = "git+https://github.com/midnightntwrk/midnight-zk?branch=irakoton%40external_hash#b2071a9420921e39aa36146c8dc6758e6ed1dee3"
 dependencies = [
  "bitvec",
  "blst",
@@ -530,7 +530,7 @@ dependencies = [
 [[package]]
 name = "midnight-proofs"
 version = "0.5.1"
-source = "git+https://github.com/midnightntwrk/midnight-zk.git?rev=4769e14#4769e143566e70a4b7e9465609d99d9ca898f6a7"
+source = "git+https://github.com/midnightntwrk/midnight-zk?branch=irakoton%40external_hash#b2071a9420921e39aa36146c8dc6758e6ed1dee3"
 dependencies = [
  "blake2b_simd",
  "ff",
